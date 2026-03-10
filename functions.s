@@ -10,7 +10,7 @@
  **************************************************************************/
 
  /*
- ** REPLACE THIS YOUR NAME AND EID **
+ ** YIFEI (PHOEBE) WANG YW27589 **
  */
     
     .arch armv8-a
@@ -65,11 +65,65 @@ unicode_to_UTF8:
     .global compare
     .type   compare, %function
 compare:
-    // (STUDENT TODO) Code for compare goes here.
     // Input parameter a is passed in X0; input parameter b is passed in X1.
     // Output value is returned in X0.
 
-    ret
+    // unique_id
+    LDUR X2, [X0]
+    LDUR X3, [X1]
+    CMP X2, X3
+    B.NE not_equal // not equal to 0
+
+    // seat_code + padding
+    LDUR X2, [X0, #8]
+    LDUR X3, [X1, #8]
+    // mask out the padding
+    MOVZ X4, #0xFFFF
+    MOVK X4, #0x00FF, LSL #16
+    ANDS X2, X2, X4
+    ANDS X3, X3, X4
+    CMP X2, X3
+    B.NE not_equal
+
+    // price
+    LDUR X2, [X0, #16]
+    LDUR X3, [X1, #16]
+    CMP X2, X3
+    B.NE not_equal
+
+    // special + padding
+    LDUR X2, [X0, #24]
+    LDUR X3, [X1, #24]
+    // mask out the padding
+    MOVZ X4, #0x00FF
+    ANDS X2, X2, X4
+    ANDS X3, X3, X4
+    CMP X2, X3
+    B.NE not_equal
+
+    // recommendations
+    LDUR X2, [X0, #32]
+    LDUR X3, [X1, #32]
+    CMP X2, X3
+    B.NE not_equal
+
+    // refund + padding
+    LDUR X2, [X0, #40]
+    LDUR X3, [X1, #40]
+    MOVZ X4, #0x00FF
+    ANDS X2, X2, X4
+    ANDS X3, X3, X4
+    CMP X2, X3
+    B.NE not_equal
+
+    // all equal
+    MOVZ X0, #0
+    RET
+
+not_equal:
+    MOVZ X0, #1
+    RET
+
     .size   compare, .-compare
     // ... and ends with the .size above this line.
 
