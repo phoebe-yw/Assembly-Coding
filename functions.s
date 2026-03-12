@@ -133,7 +133,76 @@ UTF8_to_unicode:
     // Input parameter utf8 is passed in X0
     // Output value is returned in X0
 
+    // load all 4 bytes into x1
+    LDUR X1, [X0]
+    // only care about the first 4 bytes, so mask out the rest
+    MOVZ X10, #0xFFFF
+    MOVK X10, #0xFFFF, LSL #16
+    ANDS X1, X1, X10
+    // extract every byte
+    MOVZ X2, #0xFF
+    ANDS X3, X1, X2 // x3 = byte0
+    LSR X1, X1, #8
+    ANDS X4, X1, X2 // X4 = byte1
+    LSR X1, X1, #8
+    ANDS X5, X1, X2 // X5 = byte2
+    LSR X1, X1, #8
+    ANDS X6, X1, X2 // X6 = byte3
+
+    MOVZ X12, #0x3F // mask for last 6 bits
+
+    // set the conditions
+    MOVZ X11, #0x7F
+    CMP X3, X11
+    B.LS is_1byte
+
+    MOVZ X11, #0xDF
+    CMP X3, X11
+    B.LS is_2byte
+
+    MOVZ X11, #0xEF
+    CMP X3, X11
+    B.LS is_3byte
+
+    // if 4 byte
+    MOVZ X11, #0x07
+    ANDS X3, X3, X11
+    LSL X3, X3, #18 
+    ANDS X4, X4, X12
+    LSL X4, X4, #12
+    ANDS X5, X5, X12
+    LSL X5, X5, #6
+    ANDS X6, X6, X12
+    ORR X0, X3, X4
+    ORR X0, X0, X5
+    ORR X0, X0, X6
     ret
+
+is_1byte:
+    // just return the value in x3
+    MOVZ X0, #0
+    ORR X0, X0, X3
+    RET
+
+is_2byte:
+    MOVZ X10, #0x1F
+    ANDS X3, X3, X10
+    LSL X3, X3, #6
+    ANDS X4, X4, X12
+    ORR X0, X3, X4
+    RET
+
+is_3byte:
+    MOVZ X10, #0x0F
+    ANDS X3, X3, X10
+    LSL X3, X3, #12
+    ANDS X4, X4, X12
+    LSL X4, X4, #6
+    ANDS X5, X5, X12
+    ORR X0, X3, X4
+    ORR X0, X0, X5
+    RET
+
 	.size	UTF8_to_unicode, .-UTF8_to_unicode
 	// ... and ends with the .size above this line.
 
