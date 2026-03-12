@@ -28,6 +28,97 @@ lru:
     // Input parameter access is passed in X0
     // Input parameter cache_matrix is passed in X1
     // Output value is returned in X0
+    
+    // x0 = access
+    // x1 = cache_matrix
+
+    // first assign the value of cache_matrix to a register
+    // load the value of x1 into register x2
+    // m = *cache_matrix
+    LDUR X2, [X1] // X2 = the value at mem addr stored in x1, cache_matrix
+
+    // step 1: fill column i of the matrix with 1's
+    // X3 = 0x0101010101010101
+    MOVZ X3, #0x0101, LSL #48
+    MOVK X3, #0x0101, LSL #32
+    MOVK X3, #0x0101, LSL #16
+    MOVK X3, #0x0101
+    // shift by access 
+    // X4 = column mask = base << access
+    LSL X4, X3, X0 
+    // or with current cache_matrix
+    // m |= column mask
+    ORR X2, X2, X4
+    // *cache_matrix = m
+    // store the value in x2 into memory address x1
+
+    // step 2: set row i to 0's
+    // X5 = multiply 8 to determine how many bits to shift
+    LSL X5, X0, #3
+    // shift by X5
+    MOVZ X6, #0xFF // X6 = masking one byte
+    LSL X6, X6, X5 // X6 = 0xFF << (access * 8)
+    // negate to make the mask
+    MVN X6, X6
+    // and with original matrix to 0 out row
+    ANDS X2, X2, X6
+    // store into mem addr x1
+    STUR X2, [X1]
+
+    // part 3
+    // collaspe the 8 rows 
+    MOVZ X7, #0 // zero out everything in x7
+    // make first mask >> 32
+    LSR X7, X2, #32
+    ORR X2, X2, X7
+    // make second mask >> 16
+    LSR X7, X2, #16
+    ORR X2, X2, X7
+    // make third mask >> 8
+    LSR X7, X2, #8
+    ORR X2, X2, X7
+    // keep only last byte
+    MOVZ X8, #0x00FF 
+    ANDS X2, X2, X8
+
+    // invert
+    MVN  X2, X2
+    ANDS X2, X2, X8
+
+    // smear the first 1 bit to the right
+    MOVZ X7, #0
+    LSR X7, X2, #1
+    ORR X2, X2, X7
+    LSR X7, X2, #2
+    ORR X2, X2, X7
+    LSR X7, X2, #4
+    ORR X2, X2, X7
+
+    // pop count
+    MOVZ X8, #0x55
+    LSR X9, X2, #1
+    ANDS X9, X9, X8
+    MOVZ X10, #0
+    ANDS X10, X2, X8
+    ADDS X2, X10, X9
+
+    MOVZ X8, #0x33
+    LSR X9, X2, #2
+    ANDS X9, X9, X8
+    MOVZ X10, #0
+    ANDS X10, X2, X8
+    ADDS X2, X10, X9
+
+    MOVZ X8, #0x0F
+    LSR X9, X2, #4
+    ANDS X9, X9, X8
+    MOVZ X10, #0
+    ANDS X10, X2, X8
+    ADDS X2, X10, X9
+
+    // return the final count
+    MOVZ X11, #1
+    SUBS X0, X2, X11 // subtract 1 to get the index of the LRU way
 
     ret
     .size   lru, .-lru
@@ -52,7 +143,7 @@ UTF8_to_unicode:
 	.type	unicode_to_UTF8, %function
 unicode_to_UTF8:
     // (STUDENT TODO) Code for unicode_to_UTF8 goes here.
-    // Input parameter a is passed in X0; input parameter utf8 is passed in X2
+    // Input parameter a is passed in X0; input parameter utf8 is passed in X1
     // There are no output values
 
     ret
