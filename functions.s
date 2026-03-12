@@ -145,8 +145,87 @@ unicode_to_UTF8:
     // (STUDENT TODO) Code for unicode_to_UTF8 goes here.
     // Input parameter a is passed in X0; input parameter utf8 is passed in X1
     // There are no output values
-
+    // first check 1 byte range
+    MOVZ X2, #0x7F
+    MOVZ X6, #0x3F // x6 = masks last 6 bits
+    CMP X0, X2
+    B.GT if_2byte
+    STUR X0, [X1] // store the value in x0 into memory address x1
     ret
+
+if_2byte:
+    MOVZ X2, #0x7FF
+    CMP X0, X2
+    B.GT if_3byte
+    // 2 byte encoding
+    // first byte: 110xxxxx
+    MOVZ X2, #0xC0 // 11000000
+    LSR X3, X0, #6 // first 5 bytes
+    ORR X3, X3, X2 // add the 110
+    // second byte: 10xxxxxx
+    MOVZ X2, #0x80 // 10000000
+    ANDS X4, X0, X6 // last 6 bits
+    ORR X4, X4, X2 // add the 10
+    STUR X3, [X1] 
+    STUR X4, [X1, #1] 
+    RET
+
+if_3byte:
+    MOVZ X2, #0xFFFF
+    CMP X0, X2
+    B.GT if_4byte
+    // first byte
+    MOVZ X2, #0xE0
+    LSR X3, X0, #12 // first 4 bytes
+    ORR X3, X3, X2 // add the 1110
+    // second byte
+    MOVZ X2, #0x80
+    LSR X4, X0, #6 // next 6 bytes
+    ORR X4, X4, X2 // add the 10
+    // third byte
+    ANDS X5, X0, X6 // last 6 bytes
+    ORR X5, X5, X2 // add the 10
+    STUR X3, [X1]
+    STUR X4, [X1, #1]
+    STUR X5, [X1, #2]
+    RET
+
+if_4byte:
+    MOVZ X2, #0xFFFF
+    MOVK X2, #0x0010, LSL #16
+    CMP X0, X2
+    B.GT invalid_utf8
+    // first byte
+    MOVZ X2, #0xF0
+    LSR X3, X0, #18 // first 3 bytes
+    ORR X3, X3, X2 // add the 11110
+    // second byte
+    MOVZ X2, #0x80
+    LSR X4, X0, #12 // next 6 bytes
+    ANDS X4, X4, X6 // mask to get only 6 bits
+    ORR X4, X4, X2 // add the 10
+    LSL X4, X4, #8
+    // third byte
+    LSR X5, X0, #6 // next 6 bytes
+    ANDS X5, X5, X6 // mask to get only 6 bits
+    ORR X5, X5, X2 // add the 10
+    LSL X5, X5, #16
+    // fourth byte
+    ANDS X7, X0, X6 // last 6 bytes
+    ORR X7, X7, X2 // add the 10
+    LSL X7, X7, #24
+    ORR X3, X3, X4
+    ORR X3, X3, X5
+    ORR X3, X3, X7
+    STUR X3, [X1]
+    RET
+
+invalid_utf8:
+    MOVZ X2, #0xFFFF
+    MOVK X2, #0xFFFF, LSL #16
+    STUR X2, [X1]
+    RET
+
 	.size	unicode_to_UTF8, .-unicode_to_UTF8
 	// ... and ends with the .size above this line.
 
