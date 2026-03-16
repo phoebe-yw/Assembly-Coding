@@ -417,6 +417,38 @@ sum_up:
     // Input parameter starting_node is passed in X0
     // Output value is returned in X0.
 
+    // x0 = **starting_node
+    // x1 = sum
+    MOVZ X1, #0
+    // x2 = curr = *starting_node
+    LDUR X2, [X0]
+    // x3 = previous node
+    MOVZ X3, #0
+    // x4 = next node
+    MOVZ X4, #0
+
+loop:
+    // while curr != NULL
+    CMP X2, XZR
+    B.EQ end_loop
+
+    // sum += curr->data
+    LDUR X5, [X2] // x5 = curr->data
+    ADDS X1, X1, X5
+    // next = curr->npx XOR prev
+    LDUR X5, [X2, #8]
+    EOR X4, X5, X3
+    // prev = curr
+    ORR X3, X2, XZR
+    // curr = next
+    ORR X2, X4, XZR
+    B loop
+
+end_loop:
+    // return sum
+    ORR X0, X1, XZR
+    RET
+
     .size   sum_up, .-sum_up
     // ... and ends with the .size above this line.
     
