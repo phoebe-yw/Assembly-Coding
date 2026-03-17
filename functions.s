@@ -388,7 +388,47 @@ insert_at_head:
     // Input parameter head is passed in X0; input parameter data is passed in X1; input parameter tail is passed in X2
     // There is no output value. Parameter head will be mutated, and possibly tail
 
-ret
+    // x0 = **head, x1 = data, x2 = **tail
+    // save everything
+    SUB SP, SP, #32 
+    STUR X0, [SP, #0] // save **head
+    STUR X1, [SP, #8] // save data
+    STUR X2, [SP, #16] // save **tail
+    STUR X30, [SP, #24] // save return address
+
+    // create new node
+    MOVZ X0, #16 // size of node
+    BL malloc 
+
+    // restore saved registers
+    LDUR X9, [SP, #0] // restore **head
+    LDUR X10, [SP, #8] // restore data
+    LDUR X11, [SP, #16] // restore **tail
+    LDUR X30, [SP, #24] // restore return address
+    // pop the stack
+    ADD SP, SP, #32
+
+    STUR X10, [X0] // new_node->data = data
+
+    // check if head is NULL
+    LDUR X12, [X9] // X12 = *head
+    CMP X12, XZR
+    B.NE not_empty
+
+    // empty list, new node is both head and tail
+    MOVZ X13, #0 // X13 = NULL
+    STUR X13, [X0, #8] // new_node->npx = NULL
+    STUR X0, [X9] // *head = new_node
+    STUR X0, [X11] // *tail = new_node
+    ret
+
+not_empty:
+    STUR X12, [X0, #8] // new_node->npx = *head
+    LDUR X13, [X12, #8] // X13 = (*head)->npx
+    EOR X13, X13, X0 // X13 = (*head)->npx XOR new_node
+    STUR X13, [X12, #8] // (*head)->npx
+    STUR X0, [X9] // *head = new_node
+    RET
 
 	.size	insert_at_head, .-insert_at_head
 	// ... and ends with the .size above this line.
@@ -403,7 +443,41 @@ del_at_head:
     // Input parameter head is passed in X0; Input parameter tail is passed in X1
     // There is no output value. Parameter head and tail will be possibly mutated
 
-    ret
+    // x0 = **head, x1 = **tail
+    LDUR X2, [X0] // X2 = *head
+    LDUR X3, [X1] // X3 = *tail
+    CMP X2, XZR // check if head is NULL
+    B.EQ is_empty
+
+    CMP X2, X3 // check if head == tail
+    B.EQ one_node
+
+    // now has more than 1 node
+    LDUR X4, [X2, #8] // X4 = old_head->npx = new_head
+    LDUR X5, [X4, #8] // X5 = new_head->npx
+    EOR X5, X5, X2 // new_head->npx XOR old_head
+    STUR X5, [X4, #8] // set to new_head->npx
+    STUR X4, [X0] // *head = new_head 
+    B free_node
+    
+one_node:
+    MOVZ X4, #0 // X4 = NULL
+    STUR X4, [X0]
+    STUR X4, [X1]
+
+free_node:
+    SUB SP, SP, #16
+    STUR X2, [SP, #0]
+    STUR X30, [SP, #8]
+    ORR X0, XZR, X2
+    BL free
+    LDUR X30, [SP, #8]
+    ADD SP, SP, #16
+    RET
+
+is_empty:
+    RET
+
     .size   del_at_head, .-del_at_head
     // ... and ends with the .size above this line.
 
