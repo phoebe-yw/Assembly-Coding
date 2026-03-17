@@ -375,7 +375,48 @@ tree_depth:
     // Input parameter root is passed in X0.
     // Output value is returned in X0.
 
-    ret
+    // x0 = root
+    CMP X0, XZR
+    B.EQ is_null
+
+    // make space in SP
+    SUB SP, SP, #32 // must be 16 byte aligned
+    STUR X0, [SP, #0] // save root
+    // sp, #8 not saved just yet for left
+    STUR X30, [SP, #16] // save return address
+
+    // load left_depth into x0
+    LDUR X0, [X0, #0] 
+    BL tree_depth
+    STUR X0, [SP, #8] // save left_depth
+
+    // restore root to x9
+    LDUR X9, [SP, #0] 
+    // load right_depth into x0
+    LDUR X0, [X9, #8] 
+    BL tree_depth
+    // now SP holds root, left_depth, return address; x0 holds right_depth
+    // restore left_depth to x10
+    LDUR X10, [SP, #8]
+    LDUR X30, [SP, #16] // restore return address
+    // pop the stack
+    ADD SP, SP, #32
+    // compare left and right depth
+    CMP X10, X0
+    B.GT left_deeper
+    // right deeper or equal
+    MOVZ X11, #1
+    ADDS X0, X0, X11
+    RET
+
+left_deeper:
+    MOVZ X11, #1
+    ADDS X0, X10, X11
+    RET
+is_null:
+    MOVZ X0, #0 // return 0 for null node
+    RET
+
 	.size	tree_depth, .-tree_depth
 	// ... and ends with the .size above this line.
 
